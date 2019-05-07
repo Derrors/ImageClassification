@@ -1,11 +1,10 @@
 
-## 一、环境相关
 
 ### 1.运行环境
   提交代码均在 **Python 3.6、Pytorch 1.1** 环境下成功运行.
 
-### 2.运行环境安装与配置
-  2.1 安装 Anaconda 并配置 Python 3.6
+#### 1.1运行环境安装与配置
+  1.1.1 安装 Anaconda 并配置 Python 3.6
   
   #在[Anaconda](http://jianshu.com)官方网站下载 Windows 版本软件
   
@@ -13,7 +12,7 @@
   
   #下载完成后，打开软件选择默认设置完成安装.
   
-  2.2 配置 Pytorch 
+  1.1.2 配置 Pytorch 
   ```
   #打开 Anaconda Prompt，创建 Pytorch 环境
     conda create -n pytorch python=3.6
@@ -30,4 +29,7 @@
     torch.__version__
   #输出版本信息即为配置成功.
   ```
+#### 1.2 编辑器
+  #可使用 Pycharm 或者 Vscode
+  #配置编辑器运行环境百度一下你就知道.
   
