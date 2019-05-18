@@ -5,7 +5,7 @@
 
    \*安装 Anaconda 并配置 Python 3.6
   
-   \*在[Anaconda](http://jianshu.com)官方网站下载 Windows 版本软件
+   \*在[Anaconda](https://www.anaconda.com/)官方网站下载 Windows 版本软件
   
    [Anaconda 2019.03 for Windows Installer](https://repo.anaconda.com/archive/Anaconda3-2019.03-Windows-x86_64.exe)
   
