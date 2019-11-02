@@ -1,0 +1,6 @@
+classes= 200
+train  = /home/qhli/Derrors/darknet/mydata/2019_train.txt
+valid  = /home/qhli/Derrors/darknet/mydata/2019_val.txt
+names = /home/qhli/Derrors/darknet/data/voc.names
+backup = backup
+
