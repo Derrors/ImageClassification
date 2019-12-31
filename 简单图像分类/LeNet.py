@@ -1,8 +1,8 @@
-# coding: utf-8                                                                   
-# @derrors 2019-05-07
+# coding: utf-8
+# @derrors 2019-12-31
 #
-# LeNet 网络结构：输入->卷积层->激活->池化->卷积->激活->池化->卷积->激活->池化         
-#                    ->全连接->激活->全连接->激活->全连接->激活->输出               
+# LeNet 网络结构：输入->卷积层->激活->池化->卷积->激活->池化->卷积->激活->池化
+#                    ->全连接->激活->全连接->激活->全连接->激活->输出
 import os
 import csv
 import torch
@@ -10,59 +10,35 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 from PIL import Image
-from torchvision import transforms
+import torchvision.transforms as transforms
+from torchvision.datasets import CIFAR100
 
 
 # 是否使用 GPU 进行处理
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 def default_loader(path):
     return Image.open(path).convert('RGB')
 
-class MyDataset(Dataset):
-    def __init__(self, txt, transform=None, target_transform=None, loader=default_loader):
-        fh = open(txt, 'r')
-        imgs = []
-        for line in fh:
-            line = line.strip('\n')
-            line = line.rstrip()
-            words = line.split()
-            imgs.append((words[0], int(words[1])))
-        self.imgs = imgs
-        self.transform = transform
-        self.target_transform = target_transform
-        self.loader = loader
- 
-    def __getitem__(self, index):
-        fn, label = self.imgs[index]
-        img = self.loader(fn)
-        if self.transform is not None:
-            img = self.transform(img)
-        return img, label
- 
-    def __len__(self):
-        return len(self.imgs)
- 
 
 # 数据预处理
 def load_data(batch_size):
     transform_train = transforms.Compose([
-        transforms.Resize(32),         # 缩放图片(Image)，保持长宽比不变，最短边为32像素
-        transforms.CenterCrop(32),     # 从图片中间切出224*224的图片
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
-    '''
     transform_test = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
-    '''
+    trainset = CIFAR100('../data/CIFAR100', train=True, transform=transform_train, download=True)
+    testset = CIFAR100('../data/CIFAR100', train=False, transform=transform_test, download=True)
 
-    trainset = MyDataset(txt='train.txt', transform=transform_train)
-    trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
+    trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=10)
+    testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=10)
+    return trainset, testset, trainloader, testloader
 
-    return trainset, trainloader
 
 # 定义网络结构
 class LeNet(nn.Module):
@@ -72,7 +48,7 @@ class LeNet(nn.Module):
 
         self.conv = nn.Sequential(
             # 卷积层 in_channels、out_channels、kernel_size、stride、padding
-            #          输入深度     输出深度     卷积核尺寸  滑动步长  补0填充    
+            #          输入深度     输出深度     卷积核尺寸  滑动步长  补0填充
             nn.Conv2d(in_channels=3, out_channels=6, kernel_size=5, stride=1, padding=2),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
@@ -86,7 +62,7 @@ class LeNet(nn.Module):
         )
         self.fc = nn.Sequential(
             # 全连接层 in_features、out_features 分别表示输入特征数、输出特征数
-            nn.Linear(in_features=8*8*120, out_features=120),
+            nn.Linear(in_features=8 * 8 * 120, out_features=120),
             nn.ReLU(),
             nn.Linear(120, 84),
             nn.ReLU(),
@@ -94,6 +70,7 @@ class LeNet(nn.Module):
             nn.Sigmoid()
         )
     # 前向传播过程
+
     def forward(self, x):
         out = self.conv(x)
         # reshape 操作
@@ -110,7 +87,7 @@ if __name__ == "__main__":
 
     # 构建网络模型
     lenet = LeNet().to(device)
-    trainset, trainloader= load_data(batch_size)
+    trainset, trainloader = load_data(batch_size)
     # 损失函数：交叉熵
     criterian = nn.CrossEntropyLoss(reduction='sum')
     # 优化方法：随机梯度下降 lenet.parameters() 返回 LeNet 网络中可学习的参数  lr为学习率
@@ -138,4 +115,4 @@ if __name__ == "__main__":
             running_acc += correct_num
         running_loss /= len(trainset)
         running_acc /= len(trainset)
-        print('[%d/%d] Training_Loss: %.4f, Training_Accuracy: %.2f %% ' % (i+1, epoches, running_loss, running_acc*100))
+        print('[%d/%d] Training_Loss: %.4f, Training_Accuracy: %.2f %% ' % (i + 1, epoches, running_loss, running_acc * 100))
