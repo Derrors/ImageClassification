@@ -9,7 +9,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
-from PIL import Image
 import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10
 from tqdm import trange
@@ -17,10 +16,6 @@ from tqdm import trange
 
 # 是否使用 GPU 进行处理
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-def default_loader(path):
-    return Image.open(path).convert('RGB')
 
 
 # 数据预处理
@@ -44,7 +39,7 @@ def load_data(batch_size):
 # 定义网络结构
 class LeNet(nn.Module):
     # 构造函数
-    def __init__(self, classes_num=200):
+    def __init__(self, classes_num=10):
         super(LeNet, self).__init__()
 
         self.conv = nn.Sequential(
