@@ -11,7 +11,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 from PIL import Image
 import torchvision.transforms as transforms
-from torchvision.datasets import CIFAR100
+from torchvision.datasets import CIFAR10
+from tqdm import trange
 
 
 # 是否使用 GPU 进行处理
@@ -32,8 +33,8 @@ def load_data(batch_size):
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
-    trainset = CIFAR100('../data/CIFAR100', train=True, transform=transform_train, download=True)
-    testset = CIFAR100('../data/CIFAR100', train=False, transform=transform_test, download=True)
+    trainset = CIFAR10('./data/CIFAR10', train=True, transform=transform_train, download=True)
+    testset = CIFAR10('./data/CIFAR10', train=False, transform=transform_test, download=True)
 
     trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=10)
     testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=10)
@@ -83,36 +84,55 @@ if __name__ == "__main__":
     # 参数设置
     learning_rate = 0.1
     batch_size = 256
-    epoches = 30
+    epoches = 100
 
     # 构建网络模型
     lenet = LeNet().to(device)
-    trainset, trainloader = load_data(batch_size)
+    trainset, testset, trainloader, testloader = load_data(batch_size)
     # 损失函数：交叉熵
-    criterian = nn.CrossEntropyLoss(reduction='sum')
+    criterian = nn.CrossEntropyLoss()
     # 优化方法：随机梯度下降 lenet.parameters() 返回 LeNet 网络中可学习的参数  lr为学习率
     optimizer = optim.SGD(lenet.parameters(), lr=learning_rate, momentum=0.9, weight_decay=5e-4)
 
     # 训练网络
     print('Training Starting-------------------------')
-    for i in range(epoches):
-        running_loss = 0.
-        running_acc = 0.
-        for (train_img, train_label) in trainloader:
-            train_img, train_label = train_img.to(device), train_label.to(device)
+    t = trange(epoches)
+    for i in t:
+        # 训练模型
+        train_loss = 0.0
+        train_acc = 0.0
+        lenet.train()
+        for (train_input, train_label) in trainloader:
+            train_input, train_label = train_input.to(device), train_label.to(device)
             # 在训练之前，必须先清零梯度缓存
             optimizer.zero_grad()
-            train_output = lenet(train_img)
+            train_output = lenet(train_input)
             # 计算误差
             loss = criterian(train_output, train_label)
             loss.backward()
             # 参数更新
             optimizer.step()
             # 计算训练过程的损失大小及准确率
-            running_loss += loss.item()
+            train_loss += loss.item()
             _, predict = torch.max(train_output, 1)
             correct_num = (predict == train_label).sum().item()
-            running_acc += correct_num
-        running_loss /= len(trainset)
-        running_acc /= len(trainset)
-        print('[%d/%d] Training_Loss: %.4f, Training_Accuracy: %.2f %% ' % (i + 1, epoches, running_loss, running_acc * 100))
+            train_acc += correct_num
+        train_loss /= len(trainset)
+        train_acc /= len(trainset)
+
+        # 测试模型
+        correct = 0
+        total = 0
+        lenet.eval()
+        # 测试时，无需进行梯度计算与参数更新
+        with torch.no_grad():
+            for (test_input, test_label) in testloader:
+                test_input, test_label = test_input.to(device), test_label.to(device)
+                test_output = lenet(test_input)
+                _, predicted = torch.max(test_output.data, 1)
+                correct += (predicted == test_label).sum().item()
+                total += test_label.size(0)
+                test_acc = correct / total
+
+        print('[%d/%d] Training_Loss: %.4f, Training_Accuracy: %.2f %%  Testing_Accuracy: %.2f %%'
+              % (i + 1, epoches, train_loss, train_acc * 100, test_acc * 100))
