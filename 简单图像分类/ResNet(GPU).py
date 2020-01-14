@@ -5,18 +5,21 @@
 #
 
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
+from torch.nn.parallel.distributed import DistributedDataParallel
 from torchvision.datasets import CIFAR10
 from tqdm import tqdm
 
-
-# 是否使用 GPU 进行处理
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+torch.distributed.init_process_group(backend="nccl")
+local_rank = torch.distributed.get_rank()
+torch.cuda.set_device(local_rank)
+device = torch.device("cuda", local_rank)
 
 
 # 定义残差块
@@ -89,9 +92,8 @@ class ResNet(nn.Module):
 def ResNet18():
     return ResNet(ResidualBlock)
 
+
 # 数据预处理
-
-
 def load_data(batch_size):
     transform_train = transforms.Compose([
         transforms.ToTensor(),
@@ -101,11 +103,15 @@ def load_data(batch_size):
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
+
     trainset = CIFAR10('./data/CIFAR10', train=True, transform=transform_train, download=True)
     testset = CIFAR10('./data/CIFAR10', train=False, transform=transform_test, download=True)
 
-    trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=10)
-    testloader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=10)
+    train_sampler = DistributedSampler(trainset)
+
+    trainloader = DataLoader(trainset, batch_size=batch_size, num_workers=4, sampler=train_sampler)
+    testloader = DataLoader(testset, batch_size=batch_size, num_workers=4)
+
     return trainset, testset, trainloader, testloader
 
 
@@ -117,7 +123,10 @@ if __name__ == "__main__":
     best = 0
     # 加载数据、构建模型、选择损失函数和优化器
     trainset, testset, trainloader, testloader = load_data(batch_size)
+
     resnet = ResNet18().to(device)
+    resnet = DistributedDataParallel(resnet, device_ids=[local_rank], output_device=local_rank)
+
     criterian = nn.CrossEntropyLoss()
     optimizer = optim.Adam(resnet.parameters(), lr=learning_rate, weight_decay=5e-4)
 
@@ -128,7 +137,9 @@ if __name__ == "__main__":
         train_acc = 0.0
         resnet.train()
         for (train_input, train_label) in tqdm(trainloader):
-            train_input, train_label = train_input.to(device), train_label.to(device)
+            train_input = train_input.to(device)
+            train_label = train_label.to(device)
+
             # 在训练之前，必须先清零梯度缓存
             optimizer.zero_grad()
             train_output = resnet(train_input)
@@ -152,7 +163,9 @@ if __name__ == "__main__":
         # 测试时，无需进行梯度计算与参数更新
         with torch.no_grad():
             for (test_input, test_label) in testloader:
-                test_input, test_label = test_input.to(device), test_label.to(device)
+                test_input = test_input.to(device)
+                test_label = test_label.to(device)
+
                 test_output = resnet(test_input)
                 _, predicted = torch.max(test_output.data, 1)
                 correct += (predicted == test_label).sum().item()
